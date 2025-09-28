@@ -31,12 +31,12 @@ O projeto está organizado da seguinte forma para maior clareza e manutenibilida
 
 3.  **Ingestão de Dados (`ingest.py`):
     *   Quando chamado pelo comando `ingest`, este módulo lê o arquivo `data/products.csv`.
-    *   Utiliza o modelo `all-MiniLM-L6-v2` para converter as descrições dos produtos em vetores.
+    *   Utiliza o modelo `all-MiniLM-L6-v2` (sentence-transformers) ou `text-embedding-3-small` (OpenAI) para converter as descrições dos produtos em vetores.
     *   Conecta-se ao banco de dados Oracle, cria uma tabela `products` com uma coluna `VECTOR` e insere os dados e vetores.
 
 4.  **Busca Semântica (`search.py`):**
     *   Quando chamado pelo comando `search`, este módulo recebe uma consulta em linguagem natural.
-    *   Gera um vetor para essa consulta usando o mesmo modelo.
+    *   Gera um vetor para essa consulta usando o mesmo modelo configurado (sentence-transformers ou OpenAI).
     *   Executa uma busca por similaridade de cosseno no Oracle DB utilizando a função `VECTOR_DISTANCE`.
     *   Retorna os produtos mais relevantes.
 
@@ -80,6 +80,21 @@ Execute os seguintes comandos a partir do diretório raiz do projeto (`C:/projet
       Descrição: High-performance laptop with 16GB RAM and 512GB SSD.
       Similaridade: 0.85...
     ```
+
+## Usando Embeddings da OpenAI
+
+Para usar embeddings da OpenAI em vez do sentence-transformers:
+
+1. **Altere a variável de ambiente no docker-compose.yml:**
+   ```yaml
+   - USE_OPENAI=true
+   ```
+
+2. **Reconstrua e execute:**
+   ```sh
+   docker-compose up -d --build
+   docker-compose exec app python main.py ingest
+   ```
 
 ## Experimentando
 

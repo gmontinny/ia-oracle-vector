@@ -23,6 +23,8 @@ services:
       - ORACLE_USER=sys
       - ORACLE_PASSWORD=oracle
       - ORACLE_DSN=oracle-db:1521/FREEPDB1
+      - USE_OPENAI=true
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     command: tail -f /dev/null # Keep container running
 
 volumes:

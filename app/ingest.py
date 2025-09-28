@@ -1,21 +1,32 @@
 import os
 import pandas as pd
 import oracledb
+import array
 from sentence_transformers import SentenceTransformer
+from openai import OpenAI
 
 def run_ingestion():
     """Conecta-se ao banco de dados, gera os embeddings e ingere os dados."""
     print("Iniciando a ingestão de dados...")
 
-    # 1. Carrega o Modelo
-    model = SentenceTransformer('all-MiniLM-L6-v2')
-
-    # 2. Lê os dados do CSV
+    # 1. Lê os dados do CSV
     df = pd.read_csv('data/products.csv')
-
-    # 3. Gera os Embeddings
     descriptions = df['description'].tolist()
-    embeddings = model.encode(descriptions)
+
+    # 2. Gera os Embeddings
+    use_openai = os.getenv('USE_OPENAI', 'false').lower() == 'true'
+    
+    if use_openai:
+        client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        embeddings = []
+        for desc in descriptions:
+            response = client.embeddings.create(input=desc, model="text-embedding-3-small")
+            embeddings.append(response.data[0].embedding)
+        vector_dim = 1536
+    else:
+        model = SentenceTransformer('all-MiniLM-L6-v2')
+        embeddings = model.encode(descriptions)
+        vector_dim = 384
 
     # 4. Detalhes da Conexão com o Banco de Dados
     user = os.getenv('ORACLE_USER', 'sys')
@@ -32,12 +43,12 @@ def run_ingestion():
                 if e.args[0].code != 942: # ORA-00942: tabela ou view não existe
                     raise
 
-            cursor.execute("""
+            cursor.execute(f"""
                 CREATE TABLE products (
                     product_id NUMBER,
                     product_name VARCHAR2(255),
                     description VARCHAR2(1000),
-                    embedding VECTOR(384, FLOAT32)
+                    embedding VECTOR({vector_dim}, FLOAT32)
                 )
             """)
 
@@ -46,11 +57,15 @@ def run_ingestion():
                 product_id = int(row['product_id'])
                 product_name = row['product_name']
                 description = row['description']
-                embedding_vector = str(embeddings[i].tolist())
+                
+                if use_openai:
+                    embedding_vector = array.array('f', embeddings[i])
+                else:
+                    embedding_vector = array.array('f', embeddings[i].tolist())
 
                 cursor.execute("""
                     INSERT INTO products (product_id, product_name, description, embedding)
-                    VALUES (:1, :2, :3, TO_VECTOR(:4))
+                    VALUES (:1, :2, :3, :4)
                 """, [product_id, product_name, description, embedding_vector])
 
             conn.commit()
