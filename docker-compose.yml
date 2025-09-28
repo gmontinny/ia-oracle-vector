@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  oracle-db:
+    image: gvenzl/oracle-free:23-slim-faststart
+    ports:
+      - "1521:1521"
+    environment:
+      - ORACLE_PASSWORD=oracle
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    volumes:
+      - ./app:/app
+      - ./data:/app/data
+    depends_on:
+      - oracle-db
+    environment:
+      - ORACLE_USER=sys
+      - ORACLE_PASSWORD=oracle
+      - ORACLE_DSN=oracle-db:1521/FREEPDB1
+    command: tail -f /dev/null # Keep container running
+
+volumes:
+  oracle-data:
